@@ -44,19 +44,33 @@ test.describe('商品模块', () => {
   const timestamp = Date.now();
   const testUser = {
     username: `testuser${timestamp}`,
-    password: 'Test123456'
+    password: 'Test123456',
+    phone: '13800138000'
   };
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173/login');
+    page.on('dialog', async dialog => {
+      await dialog.dismiss();
+    });
+    // 先注册用户
+    await page.goto('http://localhost:5173/register');
+    await page.waitForLoadState('networkidle');
+    await page.fill('input[placeholder="用户名"]', testUser.username);
+    await page.fill('input[placeholder="密码"]', testUser.password);
+    await page.fill('input[placeholder="手机号"]', testUser.phone);
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/.*login/, { timeout: 10000 });
+    // 然后登录
+    await page.waitForLoadState('networkidle');
     await page.fill('input[placeholder="用户名"]', testUser.username);
     await page.fill('input[placeholder="密码"]', testUser.password);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/.*products/);
+    await page.waitForURL(/.*products/, { timeout: 10000 });
   });
 
   test('商品列表展示', async ({ page }) => {
     await page.goto('http://localhost:5173/products');
+    await page.waitForLoadState('networkidle');
     const products = await page.locator('.product-card').count();
     expect(products).toBeGreaterThan(0);
   });
@@ -94,12 +108,9 @@ test.describe('购物车模块', () => {
   };
 
   test.beforeEach(async ({ page }) => {
-    // 处理注册和登录过程中的对话框
     page.on('dialog', async dialog => {
       await dialog.dismiss();
     });
-
-    // 先注册用户
     await page.goto('http://localhost:5173/register');
     await page.waitForLoadState('networkidle');
     await page.fill('input[placeholder="用户名"]', testUser.username);
@@ -107,8 +118,6 @@ test.describe('购物车模块', () => {
     await page.fill('input[placeholder="手机号"]', testUser.phone);
     await page.click('button[type="submit"]');
     await page.waitForURL(/.*login/, { timeout: 10000 });
-
-    // 然后登录
     await page.waitForLoadState('networkidle');
     await page.fill('input[placeholder="用户名"]', testUser.username);
     await page.fill('input[placeholder="密码"]', testUser.password);
@@ -126,25 +135,30 @@ test.describe('购物车模块', () => {
   });
 
   test('修改购物车数量', async ({ page }) => {
+    await page.goto('http://localhost:5173/products');
+    await page.locator('.btn-add').first().click();
+    await page.waitForTimeout(500);
     await page.goto('http://localhost:5173/cart');
-    const increaseBtn = page.locator('.quantity .btn-increase').first();
+    const increaseBtn = page.locator('.quantity button').nth(1);
     await increaseBtn.click();
     await page.waitForTimeout(500);
   });
 
   test('删除购物车商品', async ({ page }) => {
+    await page.goto('http://localhost:5173/products');
+    await page.locator('.btn-add').first().click();
+    await page.waitForTimeout(500);
     await page.goto('http://localhost:5173/cart');
-    const deleteBtn = page.locator('.btn-delete').first();
-    await deleteBtn.click();
+    await page.locator('.btn-delete').click();
     await page.waitForTimeout(500);
   });
 
   test('总价计算', async ({ page }) => {
-    await page.goto('http://localhost:5173/cart');
+    await page.goto('http://localhost:5173/products');
     await page.locator('.btn-add').first().click();
     await page.waitForTimeout(500);
     await page.goto('http://localhost:5173/cart');
-    const totalText = await page.locator('.total-price').textContent();
+    const totalText = await page.locator('.total').textContent();
     expect(totalText).toContain('¥');
   });
 });
@@ -158,12 +172,9 @@ test.describe('订单模块', () => {
   };
 
   test.beforeEach(async ({ page }) => {
-    // 处理注册和登录过程中的对话框
     page.on('dialog', async dialog => {
       await dialog.dismiss();
     });
-
-    // 先注册用户
     await page.goto('http://localhost:5173/register');
     await page.waitForLoadState('networkidle');
     await page.fill('input[placeholder="用户名"]', testUser.username);
@@ -171,8 +182,6 @@ test.describe('订单模块', () => {
     await page.fill('input[placeholder="手机号"]', testUser.phone);
     await page.click('button[type="submit"]');
     await page.waitForURL(/.*login/, { timeout: 10000 });
-
-    // 然后登录
     await page.waitForLoadState('networkidle');
     await page.fill('input[placeholder="用户名"]', testUser.username);
     await page.fill('input[placeholder="密码"]', testUser.password);
@@ -181,11 +190,9 @@ test.describe('订单模块', () => {
   });
 
   test('提交订单', async ({ page }) => {
-    // 先添加商品到购物车
     await page.goto('http://localhost:5173/products');
     await page.locator('.btn-add').first().click();
     await page.waitForTimeout(500);
-    // 然后去结算
     await page.goto('http://localhost:5173/cart');
     await page.locator('.btn-checkout').click();
     await expect(page).toHaveURL(/.*order\/confirm/);
