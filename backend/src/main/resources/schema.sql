@@ -1,5 +1,5 @@
 -- 用户表
-CREATE TABLE IF NOT EXISTS user (
+CREATE TABLE IF NOT EXISTS "user" (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(100) NOT NULL,
@@ -58,4 +58,15 @@ CREATE TABLE IF NOT EXISTS order_item (
     product_price DECIMAL(10,2),
     quantity INT,
     subtotal DECIMAL(10,2)
+);
+
+-- 智能助手聊天历史表
+CREATE TABLE IF NOT EXISTS assistant_chat_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    role VARCHAR(10) NOT NULL,
+    message TEXT NOT NULL,
+    sql_query VARCHAR(1000),
+    operation_type VARCHAR(50),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
