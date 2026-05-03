@@ -100,7 +100,7 @@ public class AssistantServiceImpl implements AssistantService {
             """;
 
     private static final Set<String> ALLOWED_TABLES = Set.of("product", "category", "cart", "orders", "order_item", "user");
-    private static final Pattern TABLE_PATTERN = Pattern.compile("FROM\\s+([a-zA-Z_]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TABLE_PATTERN = Pattern.compile("\\b(FROM|JOIN)\\s+\"?([a-zA-Z_]+)\"?", Pattern.CASE_INSENSITIVE);
     private static final Pattern STATEMENT_PATTERN = Pattern.compile("^\\s*(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE)",
             Pattern.CASE_INSENSITIVE);
 
@@ -266,6 +266,12 @@ public class AssistantServiceImpl implements AssistantService {
         QueryWrapper<Order> wrapper = new QueryWrapper<Order>().eq("user_id", userId);
         if (description == null || description.contains("最新") || description.contains("最近")) {
             wrapper.orderByDesc("create_time");
+        } else {
+            try {
+                wrapper.eq("id", Long.valueOf(description));
+            } catch (NumberFormatException e) {
+                wrapper.orderByDesc("create_time");
+            }
         }
         List<Order> orders = orderMapper.selectList(wrapper);
         if (orders.isEmpty()) throw new RuntimeException("未找到订单");
@@ -274,15 +280,30 @@ public class AssistantServiceImpl implements AssistantService {
 
     private boolean isValidSql(String sql) {
         if (sql == null || sql.isBlank()) return false;
-        Matcher stmtMatcher = STATEMENT_PATTERN.matcher(sql.trim());
+
+        // Reject stacked queries
+        if (sql.contains(";")) return false;
+
+        // Strip SQL comments before validation
+        String cleaned = sql.replaceAll("/\\*.*?\\*/", " ").replaceAll("--[^\n]*", " ");
+
+        Matcher stmtMatcher = STATEMENT_PATTERN.matcher(cleaned.trim());
         if (!stmtMatcher.find()) return false;
         String stmtType = stmtMatcher.group(1).toUpperCase();
         if (!"SELECT".equals(stmtType)) return false;
-        if (sql.toUpperCase().contains("PASSWORD")) return false;
 
-        Matcher tableMatcher = TABLE_PATTERN.matcher(sql);
+        // Block PASSWORD column access
+        if (cleaned.toUpperCase().contains("PASSWORD")) return false;
+
+        // Block SELECT * FROM user (protects password column via wildcard)
+        String upperSql = cleaned.toUpperCase();
+        if (upperSql.contains("SELECT *") && (upperSql.contains("FROM \"USER\"") || upperSql.contains("FROM USER"))) {
+            return false;
+        }
+
+        Matcher tableMatcher = TABLE_PATTERN.matcher(cleaned);
         while (tableMatcher.find()) {
-            String table = tableMatcher.group(1).toLowerCase();
+            String table = tableMatcher.group(2).toLowerCase();
             if (!ALLOWED_TABLES.contains(table)) return false;
         }
         return true;

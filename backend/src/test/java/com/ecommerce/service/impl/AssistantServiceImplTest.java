@@ -88,6 +88,6 @@ public class AssistantServiceImplTest {
         assertTrue(invokeIsValidSql("SELECT * FROM cart"));
         assertTrue(invokeIsValidSql("SELECT * FROM orders"));
         assertTrue(invokeIsValidSql("SELECT * FROM order_item"));
-        assertTrue(invokeIsValidSql("SELECT * FROM user"));
+        assertFalse(invokeIsValidSql("SELECT * FROM user"));
     }
 }
