@@ -309,8 +309,15 @@ public class AssistantServiceImpl implements AssistantService {
         return true;
     }
 
+    // Only tables that have a user_id column
+    private static final Set<String> USER_ID_TABLES = Set.of("cart", "orders");
+
     private String injectUserId(String sql, Long userId) {
+        // Only inject user_id for tables that have the column
         String upper = sql.toUpperCase();
+        boolean needsUserId = USER_ID_TABLES.stream().anyMatch(t -> upper.contains(t.toUpperCase()));
+        if (!needsUserId) return sql;
+
         if (upper.contains("WHERE")) {
             return sql.replaceAll("(?i)WHERE", "WHERE user_id = " + userId + " AND ");
         } else if (upper.contains("ORDER BY")) {
