@@ -42,4 +42,8 @@ export const orderApi = {
   cancel: (id) => api.put(`/orders/${id}/cancel`)
 }
 
+export const assistantApi = {
+  chat: (message) => api.post('/assistant/chat', { message })
+}
+
 export default api
