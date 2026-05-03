@@ -181,12 +181,13 @@ public class AssistantServiceImpl implements AssistantService {
 
         String safeSql = injectUserId(sql, userId);
         ChatResponseDTO dto = new ChatResponseDTO();
-        dto.setReply(explanation);
         dto.setSqlQuery(safeSql);
 
         try {
             List<Map<String, Object>> result = executeQuery(safeSql);
             dto.setResult(result);
+            // Format result summary appended to explanation
+            dto.setReply(explanation + "\n" + formatResult(result));
         } catch (Exception e) {
             dto.setReply("查询执行失败：" + e.getMessage());
         }
@@ -325,6 +326,22 @@ public class AssistantServiceImpl implements AssistantService {
         } else {
             return sql + " WHERE user_id = " + userId;
         }
+    }
+
+    private String formatResult(List<Map<String, Object>> result) {
+        if (result.isEmpty()) return "查询结果为空。";
+        if (result.size() == 1 && result.get(0).size() == 1) {
+            return "结果：" + result.get(0).values().iterator().next();
+        }
+        StringBuilder sb = new StringBuilder("共").append(result.size()).append("条结果：\n");
+        for (var row : result) {
+            for (var entry : row.entrySet()) {
+                sb.append(entry.getKey()).append(": ").append(entry.getValue()).append(", ");
+            }
+            sb.setLength(sb.length() - 2); // remove trailing comma
+            sb.append("\n");
+        }
+        return sb.toString().trim();
     }
 
     @Autowired
