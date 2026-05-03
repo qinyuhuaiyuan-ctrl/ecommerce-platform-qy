@@ -76,8 +76,8 @@ public class AssistantServiceImpl implements AssistantService {
 
             ## 安全规则
             1. 只能生成 SELECT 查询，禁止 UPDATE/DELETE/INSERT/DROP
-            2. 必须自动添加 user_id 条件，只查询当前用户的数据
-            3. 禁止查询 user 表的 password 字段
+            2. 禁止查询 user 表的 password 字段
+            3. 不要添加 user_id 条件，后端会自动注入
             4. 操作类请求返回结构化指令，不要生成 SQL
 
             ## 可用操作指令（params 都用自然标识符，后端负责解析为数据库 ID）
