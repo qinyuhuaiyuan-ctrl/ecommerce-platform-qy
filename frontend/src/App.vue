@@ -1,10 +1,12 @@
 <template>
   <div id="app">
     <router-view />
+    <FloatingAssistant />
   </div>
 </template>
 
 <script setup>
+import FloatingAssistant from './components/FloatingAssistant.vue'
 </script>
 
 <style>
