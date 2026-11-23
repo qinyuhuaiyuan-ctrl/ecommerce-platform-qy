@@ -162,3 +162,40 @@ jobs:
       - name: 发布到 Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: 部署验收
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
+        run: |
+          set -e
+          echo "验收目标: $PAGE_URL"
+
+          code="000"
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /tmp/qy-index.html -w '%{http_code}' "$PAGE_URL" || true)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+          [ "$code" = "200" ] || { echo "站点不可访问: HTTP $code"; exit 1; }
+          echo "首页可访问: HTTP 200"
+
+          asset=$(grep -o 'src="[^"]*\.js"' /tmp/qy-index.html | head -1 | sed 's/src="//;s/"$//')
+          [ -n "$asset" ] || { echo "首页未引用 JS 资源"; exit 1; }
+          asset_code=$(curl -s -o /dev/null -w '%{http_code}' "${SITE_ORIGIN}${asset}" || true)
+          [ "$asset_code" = "200" ] || { echo "静态资源不可访问: $asset HTTP $asset_code"; exit 1; }
+          echo "静态资源可访问: $asset HTTP 200"
+
+          fallback_code=$(curl -s -o /tmp/qy-deep.html -w '%{http_code}' "${PAGE_URL}products" || true)
+          grep -q 'location.replace' /tmp/qy-deep.html || { echo "SPA 深链接回退失效"; exit 1; }
+          echo "SPA 深链接回退生效 (HTTP $fallback_code, 404.html 已接管)"
+
+          {
+            echo '## 部署验收结果'
+            echo ''
+            echo '- 站点: ['"$PAGE_URL"']('"$PAGE_URL"')'
+            echo '- 首页 HTTP 200'
+            echo "- 静态资源 HTTP 200: \`$asset\`"
+            echo "- SPA 深链接回退: 生效"
+            echo '- 结论: **验收通过**'
+          } >> "$GITHUB_STEP_SUMMARY"
