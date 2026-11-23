@@ -130,6 +130,7 @@ test.describe('购物车模块', () => {
     await page.locator('.btn-add').first().click();
     await page.waitForTimeout(500);
     await page.goto('http://localhost:5173/cart');
+    await expect(page.locator('.cart-item').first()).toBeVisible();
     const cartItems = await page.locator('.cart-item').count();
     expect(cartItems).toBeGreaterThan(0);
   });
