@@ -3,5 +3,7 @@ node_modules/
 backend/target/
 .playwright-mcp/
 test-results/
+playwright-report/
+frontend/dist/
 *.log
 .env
