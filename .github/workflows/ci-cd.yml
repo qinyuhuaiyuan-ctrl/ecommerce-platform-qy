@@ -3,13 +3,14 @@ name: CI/CD
 on:
   push:
     branches: [main]
+  workflow_dispatch:
   pull_request:
     branches: [main]
 
 jobs:
   staging-package:
-    name: Windows staging 演示包
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: 打包 staging 应用
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: [backend-test, frontend-build, e2e-test]
     runs-on: ubuntu-24.04
     permissions:
@@ -38,15 +39,49 @@ jobs:
         with:
           name: staging-${{ github.sha }}
           path: bundle/app.jar
-      - name: Queue Windows staging deployment
+  deploy-staging:
+    name: 部署 Windows 测试环境
+    needs: staging-package
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Windows, X64, xcode-staging]
+    timeout-minutes: 15
+    concurrency:
+      group: ecommerce-staging
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL || 'http://localhost:18080' }}
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: 下载本次流水线构建包
+        uses: actions/download-artifact@v4
+        with:
+          name: staging-${{ github.sha }}
+          path: staging-bundle
+      - name: 启动应用并验证版本和健康状态
         env:
-          GH_TOKEN: ${{ github.token }}
-          ARTIFACT: ${{ steps.upload.outputs.artifact-id }}
-          DIGEST: ${{ steps.upload.outputs.artifact-digest }}
-        run: |
-          jq -n --arg ref "$GITHUB_SHA" --arg artifact "$ARTIFACT" --arg digest "$DIGEST" \
-            '{ref:$ref,environment:"staging",task:"deploy:ecommerce",auto_merge:false,required_contexts:[],production_environment:false,payload:{artifact:$artifact,digest:$digest}}' |
-            gh api "repos/$GITHUB_REPOSITORY/deployments" --input -
+          DEPLOY_SHA: ${{ github.sha }}
+        run: ./ops/deploy-staging.ps1 -Jar ./staging-bundle/app.jar -Sha $env:DEPLOY_SHA -Java "$env:JAVA_HOME/bin/java.exe"
+      - name: 上传部署日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ~/AppData/Local/ecommerce-qy-staging/logs/*
+          if-no-files-found: ignore
   backend-test:
     name: 后端单元测试 (Spring Boot)
     runs-on: ubuntu-24.04
@@ -173,7 +208,7 @@ jobs:
 
   deploy-pages:
     name: 部署前端到 GitHub Pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: [backend-test, frontend-build, e2e-test]
     runs-on: ubuntu-24.04
     permissions:
