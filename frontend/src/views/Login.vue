@@ -39,14 +39,15 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-page { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f5f5; }
-.login-box { width: 360px; padding: 40px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-h2 { text-align: center; margin-bottom: 30px; color: #FF6700; }
+.login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding-bottom: 96px; background: var(--color-bg); }
+.login-box { width: min(360px, calc(100% - 32px)); padding: 40px; background: var(--color-surface); color: var(--color-text); border-radius: 8px; box-shadow: var(--shadow-panel); }
+h2 { text-align: center; margin-bottom: 30px; color: var(--color-accent); }
 .form-group { margin-bottom: 20px; }
-input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; }
-input:focus { outline: none; border-color: #FF6700; }
-.btn-primary { width: 100%; height: 44px; background: #FF6700; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
-.btn-primary:hover { background: #e65c00; }
-.link-text { text-align: center; margin-top: 20px; color: #999; }
-.link-text a { color: #FF6700; }
+input { width: 100%; height: 40px; padding: 0 12px; background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 4px; font-size: 14px; }
+input::placeholder { color: var(--color-text-muted); }
+input:focus { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.btn-primary { width: 100%; height: 44px; background: var(--color-primary); color: var(--color-on-primary); border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.link-text { text-align: center; margin-top: 20px; color: var(--color-text-muted); }
+.link-text a { color: var(--color-accent); }
 </style>
