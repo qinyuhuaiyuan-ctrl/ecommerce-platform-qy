@@ -12,7 +12,7 @@
     </header>
     <div class="main container" v-if="product">
       <div class="product-detail">
-        <img :src="product.imageUrl" :alt="product.name" class="product-img" />
+        <ProductImage :src="product.imageUrl" :alt="product.name" :width="400" :height="400" class="product-img" />
         <div class="product-info">
           <h2>{{ product.name }}</h2>
           <p class="desc">{{ product.description }}</p>
@@ -36,6 +36,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { productApi, cartApi } from '../api'
+import ProductImage from '../components/ProductImage.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -86,6 +87,6 @@ onMounted(loadProduct)
   .header .container { padding-block: 8px; }
   .nav { margin-left: 0; line-height: normal; }
   .product-detail { flex-direction: column; padding: 16px; gap: 20px; }
-  .product-img { height: auto; }
+  .product-img { height: auto; aspect-ratio: 1 / 1; }
 }
 </style>

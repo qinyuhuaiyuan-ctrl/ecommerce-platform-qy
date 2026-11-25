@@ -15,7 +15,7 @@
         <h2>购物车</h2>
         <div v-if="cartItems.length" class="cart-list">
           <div v-for="item in cartItems" :key="item.id" class="cart-item">
-            <img :src="item.imageUrl" :alt="item.productName" />
+            <ProductImage :src="item.imageUrl" :alt="item.productName" :width="80" :height="80" class="cart-image" />
             <div class="item-info">
               <h4>{{ item.productName }}</h4>
               <p class="price">¥{{ item.price }}</p>
@@ -46,6 +46,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { cartApi } from '../api'
+import ProductImage from '../components/ProductImage.vue'
 
 const router = useRouter()
 const cartItems = ref([])
@@ -91,7 +92,7 @@ onMounted(loadCart)
 .cart-page { background: var(--color-surface); padding: 30px; border-radius: 8px; }
 .cart-page h2 { margin-bottom: 20px; }
 .cart-item { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--color-border); }
-.cart-item img { width: 80px; height: 80px; object-fit: cover; }
+.cart-item .cart-image { width: 80px; height: 80px; object-fit: cover; }
 .item-info { flex: 1; min-width: 120px; }
 .item-info h4 { font-size: 14px; }
 .price { color: var(--color-accent); margin-top: 5px; }
