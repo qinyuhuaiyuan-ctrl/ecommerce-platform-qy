@@ -30,18 +30,40 @@ try {
     }
   }
   Copy-Item -LiteralPath $source -Destination $target -Force
-  $start=[Diagnostics.ProcessStartInfo]::new($javaPath)
+  # Task Scheduler owns the app outside the Actions Windows job object.
+  $launchConfig=Join-Path $base 'launch.json'
+  @{java=$javaPath;jar=$target;directory=$dir;port=$Port;logs=$logs;record=$record} |
+    ConvertTo-Json | Set-Content -LiteralPath $launchConfig -Encoding utf8
+  $launcher=Join-Path $base 'run-app.ps1'
+  @'
+$ErrorActionPreference='Stop'
+$config=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'launch.json') -Raw | ConvertFrom-Json
+  $start=[Diagnostics.ProcessStartInfo]::new($config.java)
   $start.UseShellExecute=$false
   $start.CreateNoWindow=$true
-  $start.WorkingDirectory=$dir
+  $start.WorkingDirectory=$config.directory
   # App survives the job and never inherits the runner's credentials or tracking ID.
   $start.Environment.Clear()
   foreach($key in 'SystemRoot','TEMP','TMP','USERPROFILE'){ $start.Environment[$key]=[Environment]::GetEnvironmentVariable($key) }
-  foreach($arg in '-jar',$target,'--server.address=127.0.0.1',"--server.port=$Port",'--spring.h2.console.enabled=false',"--logging.file.name=$logs/app.log"){$start.ArgumentList.Add($arg)}
+  foreach($arg in '-jar',$config.jar,'--server.address=127.0.0.1',"--server.port=$($config.port)",'--spring.h2.console.enabled=false',"--logging.file.name=$($config.logs)/app.log"){$start.ArgumentList.Add($arg)}
   $proc=[Diagnostics.Process]::Start($start)
-  @{pid=$proc.Id;started=$proc.StartTime.ToUniversalTime().Ticks.ToString()}|ConvertTo-Json|Set-Content -LiteralPath $record
+  @{pid=$proc.Id;started=$proc.StartTime.ToUniversalTime().Ticks.ToString()}|ConvertTo-Json|Set-Content -LiteralPath $config.record
+  $proc.WaitForExit()
+  exit $proc.ExitCode
+'@ | Set-Content -LiteralPath $launcher -Encoding utf8
+  $taskName='XCODE-Ecommerce-Staging-App'
+  if(Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue){Stop-ScheduledTask -TaskName $taskName}
+  if(Test-Path -LiteralPath $record){Remove-Item -LiteralPath $record}
+  $action=New-ScheduledTaskAction -Execute (Get-Process -Id $PID).Path -Argument ('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{0}"' -f $launcher)
+  $principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
+  $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
+  Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Description 'Staging app host; started by Actions deployment, no polling trigger' -Force | Out-Null
+  Start-ScheduledTask -TaskName $taskName
   for($i=0;$i -lt 60;$i++) {
-    if ($proc.HasExited) {throw 'Application exited during startup; inspect deployment logs'}
+    if(Test-Path -LiteralPath $record){
+      $current=Get-Content -LiteralPath $record -Raw | ConvertFrom-Json
+      if(!(Get-Process -Id $current.pid -ErrorAction SilentlyContinue)){throw 'Application exited during startup; inspect deployment logs'}
+    }
     try {
       $local="http://127.0.0.1:$Port"
       $version=(Invoke-WebRequest "$local/build-sha.txt" -TimeoutSec 3).Content.Trim()
