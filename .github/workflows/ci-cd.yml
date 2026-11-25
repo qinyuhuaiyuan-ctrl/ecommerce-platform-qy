@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  pull_request:
-    branches: [main]
 
 jobs:
   staging-package:
@@ -116,11 +114,11 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: 构建（Pages 项目子路径）
+      - name: 前端构建校验
         working-directory: frontend
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-        run: npm run build -- --base=/${{ github.event.repository.name }}/
+        run: npm run build
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
@@ -205,72 +203,3 @@ jobs:
         if: always()
         run: |
           kill $(cat "$RUNNER_TEMP/backend.pid" "$RUNNER_TEMP/frontend.pid" 2>/dev/null) 2>/dev/null || true
-
-  deploy-pages:
-    name: 部署前端到 GitHub Pages
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    needs: [backend-test, frontend-build, e2e-test]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    steps:
-      - name: 下载前端构建产物
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-      - name: 发布到 Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: 部署验收
-        env:
-          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
-          SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
-        run: |
-          set -e
-          echo "验收目标: $PAGE_URL"
-
-          code="000"
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /tmp/qy-index.html -w '%{http_code}' "$PAGE_URL" || true)
-            [ "$code" = "200" ] && break
-            sleep 5
-          done
-          [ "$code" = "200" ] || { echo "站点不可访问: HTTP $code"; exit 1; }
-          echo "首页可访问: HTTP 200"
-
-          asset=$(grep -o 'src="[^"]*\.js"' /tmp/qy-index.html | head -1 | sed 's/src="//;s/"$//')
-          [ -n "$asset" ] || { echo "首页未引用 JS 资源"; exit 1; }
-          asset_code=$(curl -s -o /dev/null -w '%{http_code}' "${SITE_ORIGIN}${asset}" || true)
-          [ "$asset_code" = "200" ] || { echo "静态资源不可访问: $asset HTTP $asset_code"; exit 1; }
-          echo "静态资源可访问: $asset HTTP 200"
-
-          fallback_code=$(curl -s -o /tmp/qy-deep.html -w '%{http_code}' "${PAGE_URL}products" || true)
-          grep -q 'location.replace' /tmp/qy-deep.html || { echo "SPA 深链接回退失效"; exit 1; }
-          echo "SPA 深链接回退生效 (HTTP $fallback_code, 404.html 已接管)"
-
-          {
-            echo '## 部署验收结果'
-            echo ''
-            echo '- 站点: ['"$PAGE_URL"']('"$PAGE_URL"')'
-            echo '- 首页 HTTP 200'
-            echo "- 静态资源 HTTP 200: \`$asset\`"
-            echo "- SPA 深链接回退: 生效"
-            echo '- 结论: **验收通过**'
-          } >> "$GITHUB_STEP_SUMMARY"
