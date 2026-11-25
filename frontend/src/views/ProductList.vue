@@ -25,7 +25,7 @@
       <main class="content">
         <div class="product-grid">
           <div v-for="product in products" :key="product.id" class="product-card" @click="goDetail(product.id)">
-            <img :src="product.imageUrl" :alt="product.name" />
+            <ProductImage :src="product.imageUrl" :alt="product.name" class="card-image" />
             <div class="product-info">
               <h4>{{ product.name }}</h4>
               <p class="desc">{{ product.description }}</p>
@@ -43,6 +43,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { categoryApi, productApi, cartApi } from '../api'
+import ProductImage from '../components/ProductImage.vue'
 
 const router = useRouter()
 const categories = ref([])
@@ -101,7 +102,7 @@ onMounted(() => { loadCategories(); loadProducts() })
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .product-card { background: var(--color-surface); border-radius: 8px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
 .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-panel); }
-.product-card img { width: 100%; height: 200px; object-fit: cover; }
+.product-card .card-image { width: 100%; height: 200px; object-fit: cover; }
 .product-info { padding: 15px; }
 .product-info h4 { font-size: 14px; margin-bottom: 8px; }
 .desc { font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
